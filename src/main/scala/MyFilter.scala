@@ -20,6 +20,7 @@ object Ast {
   case class Integer(value: Int) extends Const
   case class Double(value: java.lang.Double) extends Const
   case class Str(value: java.lang.String) extends Const
+  case class Bool(value: Boolean) extends Const
   case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Const
 }
 
@@ -85,8 +86,12 @@ object MyFilter {
 
         case Ast.Field(name) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(Literal(Constant(name))))
+
         case Ast.Integer(integer) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Integer")), TermName("apply")), List(Literal(Constant(new Integer(integer)))))
+        case Ast.Double(double) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Double")), TermName("apply")), List(Literal(Constant(double))))
+
         case Ast.And(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("And")), TermName("apply")), List(convert2(left), convert2(right)))
         case Ast.Or(left, right) =>
