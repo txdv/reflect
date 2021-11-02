@@ -24,6 +24,7 @@ class Test extends AnyFlatSpec with should.Matchers {
       Ast.Field("b")
     }
   }
+
   "filter" should "transform simple uequality" in {
     MyFilter.filter[T] { _.a != 1 } should be {
       Ast.Unequal(Ast.Field("a"), Ast.Integer(1))
@@ -55,6 +56,16 @@ class Test extends AnyFlatSpec with should.Matchers {
         Ast.Str("ASD")
       )
     }
+  }
+
+  "filter" should "transform function with no method" in {
+    MyFilter.filter[T] { t => t.s.toLowerCase == "asd" } should be {
+      Ast.Equal(
+        Ast.Method(Ast.Field("s"), "toLowerCase", List()),
+        Ast.Str("asd")
+      )
+    }
+
   }
 
 }
