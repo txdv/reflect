@@ -8,8 +8,10 @@ object Main extends App {
   val a = 123
 
   val result = MyFilter.filter[Test] { t =>
-    s"a $t" == 123
+    t.a != 1
   }
+
+  println(result)
 
   /*
   println(result)
@@ -17,10 +19,12 @@ object Main extends App {
   println(result)
   */
 
+ /*
   val t = Test(1, true, "2")
   println {
     reify {
       t.a == 0 && t.b == "asd"
     }
   }
+  */
 }

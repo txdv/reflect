@@ -100,30 +100,57 @@ object MyFilter {
               println(s"typed: ${t.symbol}")
 
           }
-
           ???
       }
-
     }
 
-    val r = convert(body)
-    println(s"result: $r")
+    def convert2(ast: Ast): Tree = {
+      println(ast)
+      ast match {
+        case Ast.Ident(value) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant(value))))
+        case Ast.Equal(left, right) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Equal")), TermName("apply")), List(convert2(left), convert2(right)))
+        case Ast.Unequal(left, right) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Unequal")), TermName("apply")), List(convert2(left), convert2(right)))
+        case Ast.Field(name) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(Literal(Constant(name))))
+        case Ast.Integer(integer) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Integer")), TermName("apply")), List(Literal(Constant(new Integer(integer)))))
+        case other =>
+          println(s"other: $other")
+          ???
+
+      }
+    }
     
-    c.Expr {
-      Apply(Ident(TermName("println")), List(Literal(Constant("Hello!"))))
-
-    }
-
 
     val a = reify {
-      val a = "ASD2"
-      println(a)
-      Ast.Ident(a)
+      Ast.Equal(Ast.Field("a"), Ast.Integer(1))
     }
 
     println(a)
 
-    a
+    /*
+    println("cia:")
+    a match {
+      case Expr(Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant("ASD2"))))) =>
+
+        //println(s"l: $l: ${l.getClass}")
+        //println(s"a: $a: ${a.getClass}")
+        //println(s"b: $b: ${b.getClass}")
+    }
+
+    
+    c.Expr(Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant("ASD22")))))
+    */
+    val r = convert(body)
+    c.Expr(convert2(r))
+    /*
+    c.Expr {
+      Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant("ASD"))))
+      Apply(Select(Select(Ident(TermName("Ast")), TermName("Integer")), TermName("apply")), List(Literal(Constant(new Integer(1)))))
+    }*/
   }
 }
 
