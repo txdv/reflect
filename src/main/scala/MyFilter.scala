@@ -43,10 +43,17 @@ object MyFilter {
     val Function(args, body) = p.tree
     val ValDef(mods, name, tp, rhs) = args(0)
 
+    def select(s: Tree, name: String, path: Seq[String] = Seq.empty): Ast = s match {
+      case Ident(TermName(name)) =>
+        Ast.Field(path.reverse.mkString("."))
+      case Select(s, TermName(fieldName)) =>
+        select(s, name, path :+ fieldName)
+    }
+
     def convert(t: Tree): Ast = {
       t match {
-        case Select(Ident(TermName(name)), fieldName) =>
-          Ast.Field(fieldName.toString)
+        case s: Select =>
+          select(s, name.toString)
 
         case Literal(Constant(right)) =>
           right match {
@@ -70,6 +77,8 @@ object MyFilter {
           }
         case Apply(Select(l, TermName(methodName)), args) =>
           Ast.Method(convert(l), methodName, args.map(convert))
+        case Ident(TermName(o)) =>
+          throw new NotImplementedError("referencing variables outside of the block is not supported")
       }
     }
 

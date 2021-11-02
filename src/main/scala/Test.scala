@@ -4,6 +4,8 @@ import flatspec._
 import matchers._
 
 case class T(a: Int, b: Boolean, d: Double, s: String)
+case class N(t: T)
+case class E(n: N)
 
 class Test extends AnyFlatSpec with should.Matchers {
 
@@ -65,7 +67,30 @@ class Test extends AnyFlatSpec with should.Matchers {
         Ast.Str("asd")
       )
     }
+  }
 
+  /*
+  "filter" should "handle variables from out of scope" in {
+    val a = "asd"
+    MyFilter.filter[T] { t => t.s == a } should be {
+      Ast.Equal(
+        Ast.Method(Ast.Field("s"), "toLowerCase", List()),
+        Ast.Str("asd")
+      )
+    }
+  }
+  */
+
+  "filter" should "handle nested structures" in {
+    MyFilter.filter[N] { n => n.t.s == "123" } should be {
+      Ast.Equal(Ast.Field("t.s"), Ast.Str("123"))
+    }
+  }
+
+  "filter" should "handle double nested structures" in {
+    MyFilter.filter[E] { e => e.n.t.s == "123" } should be {
+      Ast.Equal(Ast.Field("n.t.s"), Ast.Str("123"))
+    }
   }
 
 }
