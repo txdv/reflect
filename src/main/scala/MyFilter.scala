@@ -28,7 +28,6 @@ object MyFilter {
 
 
   def filterImpl[T](c: Context)(p: c.Expr[T => Boolean]): c.Expr[Ast] = {
-    println(c.mirror)
     import c.universe._
 
     val `==` = TermName("$eq$eq")
@@ -40,24 +39,13 @@ object MyFilter {
     val `<=` = TermName("$less$equal")
     val `>=` = TermName("$greater$equal")
 
-    def test(func: Function, valDef: ValDef): Unit = {
-    }
-
     val Function(args, body) = p.tree
     val ValDef(mods, name, tp, rhs) = args(0)
-
-    println("===")
-    println(p.tree)
-    println(p.tree.children)
-    println("===")
 
     def convert(t: Tree): Ast = {
       t match {
         case Select(Ident(TermName(name)), fieldName) =>
           Ast.Field(fieldName.toString)
-        case Block(a) =>
-          println(s"a: $a")
-          ???
 
         case Literal(Constant(right)) =>
           right match {
@@ -67,9 +55,6 @@ object MyFilter {
               Ast.Double(d.doubleValue)
             case s: String =>
               Ast.Str(s)
-            case other =>
-              println(s"other: $other ${other.getClass}")
-              ???
           }
         case Apply(Select(l, op), List(r)) =>
           op match {
@@ -84,33 +69,11 @@ object MyFilter {
           }
         case Apply(Select(l, TermName(methodName)), args) =>
           Ast.Method(convert(l), methodName, args.map(convert))
-        case u =>
-          println(s"unknown: ${u.getClass} $u")
-          u match {
-            case Apply(l, r) =>
-              println(s"l: $l ${l.getClass}")
-              println(s"r: $r ${r.getClass}")
-              l match {
-                case Select(l1, r1) =>
-                  println(s"l1: $l1 ${l1.getClass}")
-                  println(s"r1: $r1 ${r1.getClass}")
-
-              }
-            case Apply(Select(l1, TermName(funcname)), List()) =>
-              println(s"bla: ${funcname}")
-
-            case Typed(expr, t: TypeTree) =>
-              println(s"expr: ${expr} ${expr.getClass}")
-              println(s"typed: ${t.symbol}")
-
-          }
-          ???
       }
     }
 
 
     def convert2(ast: Ast): Tree = {
-      println(ast)
       ast match {
         case Ast.Ident(value) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant(value))))
@@ -136,10 +99,6 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Method")), TermName("apply")), list)
         case Ast.Str(string) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Str")), TermName("apply")), List(Literal(Constant(string))))
-        case other =>
-          println(s"other: $other")
-          ???
-
       }
     }
     
