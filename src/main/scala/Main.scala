@@ -7,7 +7,7 @@ object Main extends App {
   val a = 123
 
   val result = MyFilter.filter[Test] { t =>
-    t.a != 1
+    t.s.substring(0) == "ASD"
   }
 
   println(result)

@@ -35,4 +35,13 @@ class Test extends AnyFlatSpec with should.Matchers {
       )
     }
   }
+
+  "filter" should "transform function" in {
+    MyFilter.filter[T] { t => t.s.substring(10, 3) == "ASD" } should be {
+      Ast.Equal(
+        Ast.Method(Ast.Field("s"), "substring", List(Ast.Integer(10), Ast.Integer(3))),
+        Ast.Str("ASD")
+      )
+    }
+  }
 }

@@ -84,10 +84,6 @@ object MyFilter {
           }
         case Apply(Select(l, TermName(methodName)), args) =>
           Ast.Method(convert(l), methodName, args.map(convert))
-          //println(s"left: $l ${l.getClass}")
-          //println(s"op: $op ${op.getClass}")
-          //println(s"right: $r ${r.getClass}")
-
         case u =>
           println(s"unknown: ${u.getClass} $u")
           u match {
@@ -118,10 +114,12 @@ object MyFilter {
       ast match {
         case Ast.Ident(value) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant(value))))
+
         case Ast.Equal(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Equal")), TermName("apply")), List(convert2(left), convert2(right)))
         case Ast.Unequal(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Unequal")), TermName("apply")), List(convert2(left), convert2(right)))
+
         case Ast.Field(name) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(Literal(Constant(name))))
         case Ast.Integer(integer) =>
@@ -130,6 +128,14 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("And")), TermName("apply")), List(convert2(left), convert2(right)))
         case Ast.Or(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Or")), TermName("apply")), List(convert2(left), convert2(right)))
+
+        case Ast.Method(ast, methodName, args) =>
+          val args2: List[Tree] = args.toList.map(a => convert2(a))
+          val arguments = Apply(Select(Ident(TermName("List")), TermName("apply")), args2)
+          val list = List(convert2(ast), Literal(Constant(methodName)), arguments)
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Method")), TermName("apply")), list)
+        case Ast.Str(string) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Str")), TermName("apply")), List(Literal(Constant(string))))
         case other =>
           println(s"other: $other")
           ???
@@ -138,32 +144,10 @@ object MyFilter {
     }
     
 
-    val a = reify {
-      Ast.Equal(Ast.Field("a"), Ast.Integer(1))
-    }
-
-    println(a)
-
-    /*
-    println("cia:")
-    a match {
-      case Expr(Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant("ASD2"))))) =>
-
-        //println(s"l: $l: ${l.getClass}")
-        //println(s"a: $a: ${a.getClass}")
-        //println(s"b: $b: ${b.getClass}")
-    }
-
-    
-    c.Expr(Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant("ASD22")))))
-    */
-    val r = convert(body)
-    c.Expr(convert2(r))
-    /*
+    val ast = convert(body)
     c.Expr {
-      Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant("ASD"))))
-      Apply(Select(Select(Ident(TermName("Ast")), TermName("Integer")), TermName("apply")), List(Literal(Constant(new Integer(1)))))
-    }*/
+      convert2(ast)
+    }
   }
 }
 
