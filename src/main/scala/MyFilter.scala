@@ -11,7 +11,9 @@ object Ast {
 
   case class Equal(left: Ast, right: Ast) extends Ast
   case class Unequal(left: Ast, right: Ast) extends Ast
+
   case class And(left: Ast, right: Ast) extends Ast
+  case class Or(left: Ast, right: Ast) extends Ast
 
   case class Field(name: String) extends Ast
   sealed trait Const extends Ast
@@ -31,7 +33,10 @@ object MyFilter {
 
     val `==` = TermName("$eq$eq")
     val `!=` = TermName("$bang$eq")
+
     val `&&` = TermName("$amp$amp")
+    val `||` = TermName("$bar$bar")
+
     val `<=` = TermName("$less$equal")
     val `>=` = TermName("$greater$equal")
 
@@ -70,7 +75,10 @@ object MyFilter {
           op match {
             case `==` => Ast.Equal(convert(l), convert(r))
             case `!=` => Ast.Unequal(convert(l), convert(r))
+
             case `&&` => Ast.And(convert(l), convert(r))
+            case `||` => Ast.Or(convert(l), convert(r))
+
             case TermName(methodName) =>
               Ast.Method(convert(l), methodName, Seq(convert(r)))
           }
@@ -104,6 +112,7 @@ object MyFilter {
       }
     }
 
+
     def convert2(ast: Ast): Tree = {
       println(ast)
       ast match {
@@ -117,6 +126,10 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(Literal(Constant(name))))
         case Ast.Integer(integer) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Integer")), TermName("apply")), List(Literal(Constant(new Integer(integer)))))
+        case Ast.And(left, right) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("And")), TermName("apply")), List(convert2(left), convert2(right)))
+        case Ast.Or(left, right) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Or")), TermName("apply")), List(convert2(left), convert2(right)))
         case other =>
           println(s"other: $other")
           ???

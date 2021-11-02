@@ -26,4 +26,13 @@ class Test extends AnyFlatSpec with should.Matchers {
       )
     }
   }
+
+  "filter" should "transform or" in {
+    MyFilter.filter[T] { t => t.a == 1 || t.a == 2 } should be {
+      Ast.Or(
+        Ast.Equal(Ast.Field("a"), Ast.Integer(1)),
+        Ast.Equal(Ast.Field("a"), Ast.Integer(2))
+      )
+    }
+  }
 }
