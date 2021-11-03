@@ -69,17 +69,12 @@ class Test extends AnyFlatSpec with should.Matchers {
     }
   }
 
-  /*
   "filter" should "handle variables from out of scope" in {
     val a = "asd"
     MyFilter.filter[T] { t => t.s == a } should be {
-      Ast.Equal(
-        Ast.Method(Ast.Field("s"), "toLowerCase", List()),
-        Ast.Str("asd")
-      )
+      Ast.Equal(Ast.Field("s"), Ast.Raw("asd"))
     }
   }
-  */
 
   "filter" should "handle nested structures" in {
     MyFilter.filter[N] { n => n.t.s == "123" } should be {

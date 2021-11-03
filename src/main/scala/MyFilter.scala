@@ -78,7 +78,7 @@ object MyFilter {
         case Apply(Select(l, TermName(methodName)), args) =>
           Ast.Method(convert(l), methodName, args.map(convert))
         case Ident(TermName(o)) =>
-          throw new NotImplementedError("referencing variables outside of the block is not supported")
+          Ast.Raw(Ident(TermName(o)))
       }
     }
 
@@ -113,6 +113,9 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Method")), TermName("apply")), list)
         case Ast.Str(string) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Str")), TermName("apply")), List(Literal(Constant(string))))
+        case Ast.Raw(o) =>
+          val tree = o.asInstanceOf[Tree]
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Raw")), TermName("apply")), List(tree))
       }
     }
     
