@@ -16,12 +16,7 @@ object Ast {
   case class Or(left: Ast, right: Ast) extends Ast
 
   case class Field(name: String) extends Ast
-  sealed trait Const extends Ast
-  case class Integer(value: Int) extends Const
-  case class Double(value: java.lang.Double) extends Const
-  case class Str(value: java.lang.String) extends Const
-  case class Bool(value: Boolean) extends Const
-  case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Const
+  case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Ast
 
   case class Raw(obj: Any) extends Ast
 }
@@ -78,21 +73,10 @@ object MyFilter {
           select(s, name.toString)
 
         case Literal(Constant(right)) =>
-          right match {
-            case i: Integer =>
-              Ast.Integer(i.intValue)
-            case d: Double =>
-              Ast.Double(d.doubleValue)
-            case s: String =>
-              Ast.Str(s)
-          }
+          Ast.Raw(Literal(Constant(right)))
         case Apply(Select(l, op), List(r)) =>
           val leftAst = pure(l)
           val rightAst = pure(r)
-
-          println("===")
-          println(s"leftAst: $leftAst")
-          println("===")
 
           op match {
             case `==` => Ast.Equal(leftAst, rightAst)
@@ -129,11 +113,6 @@ object MyFilter {
         case Ast.Field(name) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(Literal(Constant(name))))
 
-        case Ast.Integer(integer) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("Integer")), TermName("apply")), List(Literal(Constant(new Integer(integer)))))
-        case Ast.Double(double) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("Double")), TermName("apply")), List(Literal(Constant(double))))
-
         case Ast.And(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("And")), TermName("apply")), List(convert2(left), convert2(right)))
         case Ast.Or(left, right) =>
@@ -144,8 +123,6 @@ object MyFilter {
           val arguments = Apply(Select(Ident(TermName("List")), TermName("apply")), args2)
           val list = List(convert2(ast), Literal(Constant(methodName)), arguments)
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Method")), TermName("apply")), list)
-        case Ast.Str(string) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("Str")), TermName("apply")), List(Literal(Constant(string))))
         case Ast.Raw(o) =>
           val tree = o.asInstanceOf[Tree]
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Raw")), TermName("apply")), List(tree))

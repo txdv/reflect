@@ -11,13 +11,13 @@ class Test extends AnyFlatSpec with should.Matchers {
 
   "filter" should "transform simple equality" in {
     MyFilter.filter[T] { _.a == 1 } should be {
-      Ast.Equal(Ast.Field("a"), Ast.Integer(1))
+      Ast.Equal(Ast.Field("a"), Ast.Raw(1))
     }
   }
 
   "filter" should "work with double" in {
     MyFilter.filter[T] { _.d == 1.2 } should be {
-      Ast.Equal(Ast.Field("d"), Ast.Double(1.2))
+      Ast.Equal(Ast.Field("d"), Ast.Raw(1.2))
     }
   }
 
@@ -29,15 +29,15 @@ class Test extends AnyFlatSpec with should.Matchers {
 
   "filter" should "transform simple uequality" in {
     MyFilter.filter[T] { _.a != 1 } should be {
-      Ast.Unequal(Ast.Field("a"), Ast.Integer(1))
+      Ast.Unequal(Ast.Field("a"), Ast.Raw(1))
     }
   }
 
   "filter" should "transform and" in {
     MyFilter.filter[T] { t => t.a != 1 && t.a != 2 } should be {
       Ast.And(
-        Ast.Unequal(Ast.Field("a"), Ast.Integer(1)),
-        Ast.Unequal(Ast.Field("a"), Ast.Integer(2))
+        Ast.Unequal(Ast.Field("a"), Ast.Raw(1)),
+        Ast.Unequal(Ast.Field("a"), Ast.Raw(2))
       )
     }
   }
@@ -45,8 +45,8 @@ class Test extends AnyFlatSpec with should.Matchers {
   "filter" should "transform or" in {
     MyFilter.filter[T] { t => t.a == 1 || t.a == 2 } should be {
       Ast.Or(
-        Ast.Equal(Ast.Field("a"), Ast.Integer(1)),
-        Ast.Equal(Ast.Field("a"), Ast.Integer(2))
+        Ast.Equal(Ast.Field("a"), Ast.Raw(1)),
+        Ast.Equal(Ast.Field("a"), Ast.Raw(2))
       )
     }
   }
@@ -54,8 +54,8 @@ class Test extends AnyFlatSpec with should.Matchers {
   "filter" should "transform function" in {
     MyFilter.filter[T] { t => t.s.substring(10, 3) == "ASD" } should be {
       Ast.Equal(
-        Ast.Method(Ast.Field("s"), "substring", List(Ast.Integer(10), Ast.Integer(3))),
-        Ast.Str("ASD")
+        Ast.Method(Ast.Field("s"), "substring", List(Ast.Raw(10), Ast.Raw(3))),
+        Ast.Raw("ASD")
       )
     }
   }
@@ -64,7 +64,7 @@ class Test extends AnyFlatSpec with should.Matchers {
     MyFilter.filter[T] { t => t.s.toLowerCase == "asd" } should be {
       Ast.Equal(
         Ast.Method(Ast.Field("s"), "toLowerCase", List()),
-        Ast.Str("asd")
+        Ast.Raw("asd")
       )
     }
   }
@@ -85,13 +85,13 @@ class Test extends AnyFlatSpec with should.Matchers {
 
   "filter" should "handle nested structures" in {
     MyFilter.filter[N] { n => n.t.s == "123" } should be {
-      Ast.Equal(Ast.Field("t.s"), Ast.Str("123"))
+      Ast.Equal(Ast.Field("t.s"), Ast.Raw("123"))
     }
   }
 
   "filter" should "handle double nested structures" in {
     MyFilter.filter[E] { e => e.n.t.s == "123" } should be {
-      Ast.Equal(Ast.Field("n.t.s"), Ast.Str("123"))
+      Ast.Equal(Ast.Field("n.t.s"), Ast.Raw("123"))
     }
   }
 
