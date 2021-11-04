@@ -95,4 +95,11 @@ class Test extends AnyFlatSpec with should.Matchers {
     }
   }
 
+  "filter" should "handle more complex pure side" in {
+    val args = Seq("321", "123")
+    MyFilter.filter[E] { e => e.n.t.s == args(1) } should be {
+      Ast.Equal(Ast.Field("n.t.s"), Ast.Raw("123"))
+    }
+  }
+
 }

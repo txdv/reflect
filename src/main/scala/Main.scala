@@ -12,7 +12,6 @@ object Main {
 
     val result = MyFilter.filter[Encapsulated] { e =>
       e.n.t.s.length == args(2)
-
     }
 
     println(result)

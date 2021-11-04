@@ -29,6 +29,13 @@ object Ast {
 object MyFilter {
   def filter[T](p: T => Boolean): Ast = macro filterImpl[T]
 
+  private def isPure(ast: Ast): Boolean = {
+    ast match {
+      case _: Ast.Raw => true
+      case _ => false
+    }
+  }
+
   def filterImpl[T](c: Context)(p: c.Expr[T => Boolean])(implicit tg: c.universe.WeakTypeTag[T]): c.Expr[Ast] = {
     import c.universe._
 
@@ -55,6 +62,16 @@ object MyFilter {
         select(s, name, path :+ fieldName)
     }
 
+    def pure(t: Tree): Ast = {
+      val ast = convert(t)
+      if (isPure(ast)) {
+        Ast.Raw(t)
+      } else {
+        ast
+      }
+
+    }
+
     def convert(t: Tree): Ast = {
       t match {
         case s: Select =>
@@ -70,15 +87,26 @@ object MyFilter {
               Ast.Str(s)
           }
         case Apply(Select(l, op), List(r)) =>
-          op match {
-            case `==` => Ast.Equal(convert(l), convert(r))
-            case `!=` => Ast.Unequal(convert(l), convert(r))
+          val leftAst = pure(l)
+          val rightAst = pure(r)
 
-            case `&&` => Ast.And(convert(l), convert(r))
-            case `||` => Ast.Or(convert(l), convert(r))
+          println("===")
+          println(s"leftAst: $leftAst")
+          println("===")
+
+          op match {
+            case `==` => Ast.Equal(leftAst, rightAst)
+            case `!=` => Ast.Unequal(leftAst, rightAst)
+
+            case `&&` => Ast.And(leftAst, rightAst)
+            case `||` => Ast.Or(leftAst, rightAst)
 
             case TermName(methodName) =>
-              Ast.Method(convert(l), methodName, Seq(convert(r)))
+              if (isPure(leftAst)) {
+                Ast.Raw(Apply(Select(l, op), List(r)))
+              } else {
+                Ast.Method(leftAst, methodName, Seq(rightAst))
+              }
           }
         case Apply(Select(l, TermName(methodName)), args) =>
           Ast.Method(convert(l), methodName, args.map(convert))
