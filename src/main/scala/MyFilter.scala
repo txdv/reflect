@@ -22,14 +22,19 @@ object Ast {
   case class Str(value: java.lang.String) extends Const
   case class Bool(value: Boolean) extends Const
   case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Const
+
+  case class Raw(obj: Any) extends Ast
 }
 
 object MyFilter {
   def filter[T](p: T => Boolean): Ast = macro filterImpl[T]
 
-
-  def filterImpl[T](c: Context)(p: c.Expr[T => Boolean]): c.Expr[Ast] = {
+  def filterImpl[T](c: Context)(p: c.Expr[T => Boolean])(implicit tg: c.universe.WeakTypeTag[T]): c.Expr[Ast] = {
     import c.universe._
+
+    // this is awesome
+    //println(s"prefix: ${c.prefix}")
+    //println(s"isCaseClass: ${tg.tpe.typeSymbol.asClass.isCaseClass}")
 
     val `==` = TermName("$eq$eq")
     val `!=` = TermName("$bang$eq")
@@ -121,11 +126,7 @@ object MyFilter {
     
 
     val ast = convert(body)
-    c.Expr {
-      convert2(ast)
-    }
+    val astTree = convert2(ast)
+    c.Expr[Ast](astTree)
   }
 }
-
-
-
