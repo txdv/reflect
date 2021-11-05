@@ -51,7 +51,7 @@ object MyFilter {
     val ValDef(mods, name, tp, rhs) = args(0)
 
     def select(s: Tree, name: String, path: Seq[String] = Seq.empty): Ast = s match {
-      case Ident(TermName(name)) =>
+      case Ident(TermName(termName)) if termName == name =>
         Ast.Field(path.reverse.mkString("."))
       case Select(s, TermName(fieldName)) =>
         select(s, name, path :+ fieldName)
