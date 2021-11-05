@@ -17,7 +17,7 @@ object Ast {
 
   case class Plus(left: Ast, right: Ast) extends Ast
 
-  case class Field(name: String) extends Ast
+  case class Field(target: String, name: String) extends Ast
   case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Ast
 
   case class Raw(obj: Any) extends Ast
@@ -54,7 +54,33 @@ object MyFilter {
           s"TypeApply(${show(target)}, ${arguments.map(show)})"
         case typeTree: TypeTree =>
           s"TypeTree(${typeTree})"
+        case ValDef(Modifiers(flags, mname, annotations), TermName(name), tp, rhs) =>
+          s"ValDef(Modifiers($flags, $mname, $annotations), $name, ${show(tp)}, ${show(rhs)})"
+        case EmptyTree =>
+          "EmptyTree"
+        case Function(args, body) =>
+          val t = s"Function(${args.map(show)}, $body)"
 
+          println(t)
+          t
+        case Typed(target, typeTree) =>
+          val t = s"Typed(${show(target)}, $typeTree)"
+          println(t)
+          t
+        case If(cond, left, right) =>
+          //println(s"a: $a")
+          //println(s"b: $b")
+          //println(s"c: $c")
+          s"If(${show(cond)}, ${show(left)}, ${show(right)})"
+        case Match(a, b) =>
+          println(a.getClass)
+          println(b.getClass)
+          println(b.map(show).mkString(", "))
+          s"Match($a, ${b.map(show)})"
+        case CaseDef(a, b, c) =>
+          s"CaseDef(${show(a)}, ${show(b)}, ${show(c)})"
+        case UnApply(a, b) =>
+          s"UnApply($a, $b)"
         case other =>
           println(s"class: ${other}")
           println(other.getClass)
@@ -65,6 +91,7 @@ object MyFilter {
     // this is awesome
     //println(s"prefix: ${c.prefix}")
     //println(s"isCaseClass: ${tg.tpe.typeSymbol.asClass.isCaseClass}")
+    //println(s"isCaseClass: ${tg.tpe.typeSymbol.name}")
 
     val `==` = TermName("$eq$eq")
     val `!=` = TermName("$bang$eq")
@@ -81,7 +108,7 @@ object MyFilter {
 
     def select(s: Tree, name: String, path: Seq[String] = Seq.empty): Ast = s match {
       case Ident(TermName(termName)) if termName == name =>
-        Ast.Field(path.reverse.mkString("."))
+        Ast.Field(tg.tpe.typeSymbol.name.toString, path.reverse.mkString("."))
       case Select(s, TermName(fieldName)) =>
         select(s, name, path :+ fieldName)
       case Apply(Select(Select(Ident(TermName("scala")), TermName("Predef")), TermName("augmentString")), List(rest)) =>
@@ -100,14 +127,36 @@ object MyFilter {
 
     }
 
+    def lnr: Int = {
+      (new Exception).getStackTrace.toSeq(1).getLineNumber
+    }
+
     def convert(t: Tree): Ast = {
       t match {
         case s: Select =>
+          println(lnr)
           select(s, name.toString)
 
         case Literal(Constant(right)) =>
+          println(lnr)
           Ast.Raw(Literal(Constant(right)))
+        case Apply(Select(Apply(klass, List(left)), TermName("contains")), List(right)) =>
+          println(lnr)
+          klass.toString match {
+            case "scala.Predef.intArrayOps" =>
+              Ast.In(convert(right), convert(left))
+            case "scala.Predef.refArrayOps[String]" =>
+              Ast.In(convert(right), convert(left))
+          }
+
+        case Apply(Select(Apply(TypeApply(klass, typeTree), List(left)), TermName("contains")), List(right)) =>
+          println(lnr)
+          klass.toString match {
+            case "scala.Predef.refArrayOps" =>
+              Ast.In(convert(right), convert(left))
+          }
         case Apply(Select(l, op), List(r)) =>
+          println(s"$lnr $op")
           val leftAst = pure(l)
           val rightAst = pure(r)
 
@@ -131,6 +180,8 @@ object MyFilter {
             }
           }
         case Apply(Select(l, TermName(methodName)), args) =>
+          println(lnr)
+          println(show(l))
           Ast.Method(convert(l), methodName, args.map(convert))
         case Apply(Ident(funcName), args) =>
           //println(s"HERE: $funcName ${funcName.getClass}")
@@ -144,10 +195,46 @@ object MyFilter {
 
           }
         case Ident(TermName(o)) =>
+          println(lnr)
           Ast.Raw(Ident(TermName(o)))
         case Apply(TypeApply(Select(target, TermName("contains")), List(typeTree)), List(rest)) =>
+          println(lnr)
           Ast.In(convert(rest), Ast.Raw(target))
+        case If(cond, left, right) =>
+          println(s"$lnr")
+          val condAst = pure(cond)
+          val leftAst = pure(left)
+          val rightAst = pure(right)
+
+          if (isPure(condAst) && isPure(leftAst) && isPure(rightAst)) {
+            Ast.Raw(If(cond, left, right))
+          } else {
+            //println(isPure(left
+            //Ast.Raw(If(cond, left, right))
+            ???
+          }
+
+
+          /*
+        case Apply(TypeApply(name, List(typeTree)), List(target)) =>
+          println(lnr)
+          name.toString match {
+            case "scala.Predef.refArrayOps" =>
+              val t = Ast.Raw(target)
+              println(s"ref array ops $typeTree: ${show(target)}")
+              println(t)
+              t
+            case _ =>
+              println(s"name: $name")
+              ???
+
+          }
+          */
+        //case Apply(TypeApply(Select(Select(Ident("scala"), TermName("Predef")), TermName("refArrayOps")), List(typeTree)), List(target)) =>
+
+
         case other =>
+          println(lnr)
           println(s"missing: ${other.getClass} ${show(other)}")
           ???
 
@@ -155,18 +242,22 @@ object MyFilter {
     }
 
 
+    def const(value: Any): Tree = {
+      Literal(Constant(value))
+    }
+
     def convert2(ast: Ast): Tree = {
       ast match {
         case Ast.Ident(value) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(Literal(Constant(value))))
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Ident")), TermName("apply")), List(const(value)))
 
         case Ast.Equal(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Equal")), TermName("apply")), List(convert2(left), convert2(right)))
         case Ast.Unequal(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Unequal")), TermName("apply")), List(convert2(left), convert2(right)))
 
-        case Ast.Field(name) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(Literal(Constant(name))))
+        case Ast.Field(target, name) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(const(target), const(name)))
 
         case Ast.And(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("And")), TermName("apply")), List(convert2(left), convert2(right)))
@@ -186,6 +277,9 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Raw")), TermName("apply")), List(tree))
 
         case Ast.In(target, list) =>
+          println("--------------")
+          println(target)
+          println("--------------")
           val t = convert2(target)
           val l = convert2(list)
           Apply(Select(Select(Ident(TermName("Ast")), TermName("In")), TermName("apply")), List(t, l))
@@ -194,7 +288,18 @@ object MyFilter {
     }
     
 
+    println("START")
+    println(body)
+    println(show(body))
     val ast = convert(body)
+    println("===")
+    println(ast)
+    println("===")
+    ast match {
+      case Ast.Raw(obj) =>
+        println(show(obj.asInstanceOf[Tree]))
+       case _ =>
+    }
     val astTree = convert2(ast)
     c.Expr[Ast](astTree)
   }
