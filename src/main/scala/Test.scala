@@ -102,4 +102,10 @@ class Test extends AnyFlatSpec with should.Matchers {
     }
   }
 
+  "filter" should "handle seq contains" in {
+    val args = Seq(1, 2, 3)
+    MyFilter.filter[T] { t => args.contains(t.a) } should be {
+      Ast.In(Ast.Field("a"), Ast.Raw(args))
+    }
+  }
 }

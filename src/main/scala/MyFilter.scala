@@ -15,10 +15,14 @@ object Ast {
   case class And(left: Ast, right: Ast) extends Ast
   case class Or(left: Ast, right: Ast) extends Ast
 
+  case class Plus(left: Ast, right: Ast) extends Ast
+
   case class Field(name: String) extends Ast
   case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Ast
 
   case class Raw(obj: Any) extends Ast
+
+  case class In(target: Ast, list: Ast) extends Ast
 }
 
 object MyFilter {
@@ -34,6 +38,30 @@ object MyFilter {
   def filterImpl[T](c: Context)(p: c.Expr[T => Boolean])(implicit tg: c.universe.WeakTypeTag[T]): c.Expr[Ast] = {
     import c.universe._
 
+    def show(tree: Tree): String = {
+      tree match {
+        case Literal(l) =>
+          s"Literal(${l})"
+        case Apply(ident, args) =>
+          //println(args(0).getClass)
+          val arguments = args.map(show).mkString(", ")
+          s"Apply(${show(ident)}, List($arguments))"
+        case Select(a, TermName(term)) =>
+          s"Select(${show(a)}, TermName(${term}))"
+        case Ident(name) =>
+          s"Ident(${name})"
+        case TypeApply(target, arguments) =>
+          s"TypeApply(${show(target)}, ${arguments.map(show)})"
+        case typeTree: TypeTree =>
+          s"TypeTree(${typeTree})"
+
+        case other =>
+          println(s"class: ${other}")
+          println(other.getClass)
+          ???
+      }
+    }
+
     // this is awesome
     //println(s"prefix: ${c.prefix}")
     //println(s"isCaseClass: ${tg.tpe.typeSymbol.asClass.isCaseClass}")
@@ -46,6 +74,7 @@ object MyFilter {
 
     val `<=` = TermName("$less$equal")
     val `>=` = TermName("$greater$equal")
+    val `+` = TermName("$plus")
 
     val Function(args, body) = p.tree
     val ValDef(mods, name, tp, rhs) = args(0)
@@ -55,6 +84,10 @@ object MyFilter {
         Ast.Field(path.reverse.mkString("."))
       case Select(s, TermName(fieldName)) =>
         select(s, name, path :+ fieldName)
+      case Apply(Select(Select(Ident(TermName("scala")), TermName("Predef")), TermName("augmentString")), List(rest)) =>
+        select(rest, name, path)
+      case other =>
+        Ast.Raw(other)
     }
 
     def pure(t: Tree): Ast = {
@@ -78,24 +111,46 @@ object MyFilter {
           val leftAst = pure(l)
           val rightAst = pure(r)
 
-          op match {
-            case `==` => Ast.Equal(leftAst, rightAst)
-            case `!=` => Ast.Unequal(leftAst, rightAst)
+          if (isPure(leftAst) && isPure(rightAst)) {
+            Ast.Raw(Apply(Select(l, op), List(r)))
+          } else {
+            op match {
+              case `==` => Ast.Equal(leftAst, rightAst)
+              case `!=` => Ast.Unequal(leftAst, rightAst)
 
-            case `&&` => Ast.And(leftAst, rightAst)
-            case `||` => Ast.Or(leftAst, rightAst)
+              case `&&` => Ast.And(leftAst, rightAst)
+              case `||` => Ast.Or(leftAst, rightAst)
+              case `+` => Ast.Plus(leftAst, rightAst)
 
-            case TermName(methodName) =>
-              if (isPure(leftAst)) {
-                Ast.Raw(Apply(Select(l, op), List(r)))
-              } else {
-                Ast.Method(leftAst, methodName, Seq(rightAst))
-              }
+              case TermName(methodName) =>
+                if (isPure(leftAst)) {
+                  Ast.Raw(Apply(Select(l, op), List(r)))
+                } else {
+                  Ast.Method(leftAst, methodName, Seq(rightAst))
+                }
+            }
           }
         case Apply(Select(l, TermName(methodName)), args) =>
           Ast.Method(convert(l), methodName, args.map(convert))
+        case Apply(Ident(funcName), args) =>
+          //println(s"HERE: $funcName ${funcName.getClass}")
+          val arguments = args.map(convert)
+          if (arguments.forall(isPure)) {
+            Ast.Raw(Apply(Ident(funcName), args))
+          } else {
+            //Ast.Raw(Apply(Ident(funcName), args))
+            //println("HERE2")
+            Ast.Raw(Apply(Ident(funcName), args))
+
+          }
         case Ident(TermName(o)) =>
           Ast.Raw(Ident(TermName(o)))
+        case Apply(TypeApply(Select(target, TermName("contains")), List(typeTree)), List(rest)) =>
+          Ast.In(convert(rest), Ast.Raw(target))
+        case other =>
+          println(s"missing: ${other.getClass} ${show(other)}")
+          ???
+
       }
     }
 
@@ -118,6 +173,9 @@ object MyFilter {
         case Ast.Or(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Or")), TermName("apply")), List(convert2(left), convert2(right)))
 
+        case Ast.Plus(left, right) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Plus")), TermName("apply")), List(convert2(left), convert2(right)))
+
         case Ast.Method(ast, methodName, args) =>
           val args2: List[Tree] = args.toList.map(a => convert2(a))
           val arguments = Apply(Select(Ident(TermName("List")), TermName("apply")), args2)
@@ -126,6 +184,12 @@ object MyFilter {
         case Ast.Raw(o) =>
           val tree = o.asInstanceOf[Tree]
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Raw")), TermName("apply")), List(tree))
+
+        case Ast.In(target, list) =>
+          val t = convert2(target)
+          val l = convert2(list)
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("In")), TermName("apply")), List(t, l))
+
       }
     }
     
