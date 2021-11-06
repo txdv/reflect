@@ -189,6 +189,8 @@ object MyFilter {
 
     def convert(t: Tree): Ast = {
       t match {
+        case pureTree if isPureTree(pureTree) =>
+          Ast.Raw(pureTree)
         case s: Select =>
           log()
           select(s, name.toString)
@@ -254,9 +256,6 @@ object MyFilter {
         case Apply(TypeApply(Select(target, TermName("contains")), List(typeTree)), List(rest)) =>
           log()
           Ast.In(convert(rest), Ast.Raw(target))
-        // TODO: move this up
-        case pureTree if isPureTree(pureTree) =>
-          Ast.Raw(pureTree)
         case If(cond, left, right) =>
           log()
           Ast.If(pure(cond), pure(left), pure(right))
