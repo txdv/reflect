@@ -28,6 +28,44 @@ object Ast {
 
   case class Match(expr: Ast, cases: Seq[Ast]) extends Ast
   case class CaseDef(matcher: Ast, cond: Ast, expr: Ast) extends Ast
+
+  def optimize(ast: Ast, seen: Set[Int] = Set.empty): Ast = {
+
+    val hashCode = ast.hashCode
+
+    if (seen.contains(hashCode)) {
+      ast
+    } else {
+      def opt(ast: Ast): Ast = optimize(ast, seen + hashCode)
+
+      ast match {
+        case Or(Raw(true), _) =>
+          Raw(true)
+        case Or(_, Raw(true)) =>
+          Raw(true)
+        case Or(Raw(false), right) =>
+          opt(right)
+        case Or(left, Raw(false)) =>
+          opt(left)
+        case Or(a, b) =>
+          opt(Or(opt(a), opt(b)))
+
+        case And(Raw(false), _) =>
+          Raw(false)
+        case And(_, Raw(false)) =>
+          Raw(false)
+        case And(Raw(true), right) =>
+          opt(right)
+        case And(left, Raw(true)) =>
+          opt(left)
+        case And(left, right) =>
+          And(opt(left), opt(right))
+
+        case other =>
+          other
+      }
+    }
+  }
 }
 
 object MyFilter {
