@@ -122,4 +122,22 @@ class Test extends AnyFlatSpec with should.Matchers {
       Ast.In(Ast.Field("T", "s"), Ast.Raw(args))
     }
   }
+
+  "filter" should "handle if statement with pure cond when cond is true" in {
+    val args = Array(1, 2, 3)
+    MyFilter.filter[T] { t =>
+      if (args.nonEmpty) args.contains(t.a) else false
+    } should be {
+      Ast.In(Ast.Field("T", "a"), Ast.Raw(args))
+    }
+  }
+
+  "filter" should "handle if statement with pure cond when cond is false" in {
+    val args = Array()
+    MyFilter.filter[T] { t =>
+      if (args.nonEmpty) args.contains(t.a) else false
+    } should be {
+      Ast.Raw(false)
+    }
+  }
 }

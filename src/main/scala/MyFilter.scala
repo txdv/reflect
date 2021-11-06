@@ -23,6 +23,8 @@ object Ast {
   case class Raw(obj: Any) extends Ast
 
   case class In(target: Ast, list: Ast) extends Ast
+
+  case class If(cond: Ast, left: Ast, right: Ast) extends Ast
 }
 
 object MyFilter {
@@ -35,8 +37,30 @@ object MyFilter {
     }
   }
 
+  private def lnr: Int = {
+    (new Exception).getStackTrace.toSeq(1).getLineNumber
+  }
+
+  private def log(any: Any = null): Unit = {
+    val lnr = (new Exception).getStackTrace.toSeq(1).getLineNumber
+
+    val text = any match {
+      case null => ""
+      case o => o.toString
+    }
+    println(s"$lnr: $text")
+  }
+
+
   def filterImpl[T](c: Context)(p: c.Expr[T => Boolean])(implicit tg: c.universe.WeakTypeTag[T]): c.Expr[Ast] = {
     import c.universe._
+
+    def show2(modifiers: Modifiers): String = {
+      modifiers match {
+        case Modifiers(flags, mname, annotations) =>
+          s"Modifiers($flags, $mname, $annotations)"
+      }
+    }
 
     def show(tree: Tree): String = {
       tree match {
@@ -56,6 +80,11 @@ object MyFilter {
           s"TypeTree(${typeTree})"
         case ValDef(Modifiers(flags, mname, annotations), TermName(name), tp, rhs) =>
           s"ValDef(Modifiers($flags, $mname, $annotations), $name, ${show(tp)}, ${show(rhs)})"
+        case DefDef(modifiers, TermName(defName), c, argDefs, typeTree, body) =>
+          val argDefsString = argDefs.map(a => a.map(show))
+          s"DefDef(${show2(modifiers)}, $defName, $c, $argDefsString, $typeTree, ${show(body)})"
+        //case DefDef(a) =>
+          //s"DefDef(${show(a)})"
         case EmptyTree =>
           "EmptyTree"
         case Function(args, body) =>
@@ -81,6 +110,9 @@ object MyFilter {
           s"CaseDef(${show(a)}, ${show(b)}, ${show(c)})"
         case UnApply(a, b) =>
           s"UnApply($a, $b)"
+        case Block(defs, expr) =>
+          val defsString = defs.map(show).mkString(", ")
+          s"Block(($defsString), ${show(expr)})"
         case other =>
           println(s"class: ${other}")
           println(other.getClass)
@@ -106,14 +138,35 @@ object MyFilter {
     val Function(args, body) = p.tree
     val ValDef(mods, name, tp, rhs) = args(0)
 
+    def isPureTree(tree: Tree): Boolean = tree match {
+      case Ident(TermName(termName)) =>
+        termName != name.toString
+      case Select(tree, _) =>
+        isPureTree(tree)
+      case If(cond, left, right) =>
+        isPureTree(cond) && isPureTree(left) && isPureTree(right)
+      case Apply(target, arguments) =>
+        isPureTree(target) && arguments.forall(isPureTree)
+      case TypeApply(klass, typeTree) =>
+        isPureTree(klass)
+      case other =>
+        log(s"${other.getClass} $other")
+        ???
+    }
+
+
     def select(s: Tree, name: String, path: Seq[String] = Seq.empty): Ast = s match {
       case Ident(TermName(termName)) if termName == name =>
+        log()
         Ast.Field(tg.tpe.typeSymbol.name.toString, path.reverse.mkString("."))
       case Select(s, TermName(fieldName)) =>
+        log()
         select(s, name, path :+ fieldName)
       case Apply(Select(Select(Ident(TermName("scala")), TermName("Predef")), TermName("augmentString")), List(rest)) =>
+        log()
         select(rest, name, path)
       case other =>
+        log(other)
         Ast.Raw(other)
     }
 
@@ -127,21 +180,16 @@ object MyFilter {
 
     }
 
-    def lnr: Int = {
-      (new Exception).getStackTrace.toSeq(1).getLineNumber
-    }
-
     def convert(t: Tree): Ast = {
       t match {
         case s: Select =>
-          println(lnr)
+          log()
           select(s, name.toString)
-
         case Literal(Constant(right)) =>
-          println(lnr)
+          log()
           Ast.Raw(Literal(Constant(right)))
         case Apply(Select(Apply(klass, List(left)), TermName("contains")), List(right)) =>
-          println(lnr)
+          log()
           klass.toString match {
             case "scala.Predef.intArrayOps" =>
               Ast.In(convert(right), convert(left))
@@ -150,13 +198,13 @@ object MyFilter {
           }
 
         case Apply(Select(Apply(TypeApply(klass, typeTree), List(left)), TermName("contains")), List(right)) =>
-          println(lnr)
+          log()
           klass.toString match {
             case "scala.Predef.refArrayOps" =>
               Ast.In(convert(right), convert(left))
           }
         case Apply(Select(l, op), List(r)) =>
-          println(s"$lnr $op")
+          log(op)
           val leftAst = pure(l)
           val rightAst = pure(r)
 
@@ -180,8 +228,7 @@ object MyFilter {
             }
           }
         case Apply(Select(l, TermName(methodName)), args) =>
-          println(lnr)
-          println(show(l))
+          log(show(l))
           Ast.Method(convert(l), methodName, args.map(convert))
         case Apply(Ident(funcName), args) =>
           //println(s"HERE: $funcName ${funcName.getClass}")
@@ -195,13 +242,14 @@ object MyFilter {
 
           }
         case Ident(TermName(o)) =>
-          println(lnr)
+          log(o)
           Ast.Raw(Ident(TermName(o)))
         case Apply(TypeApply(Select(target, TermName("contains")), List(typeTree)), List(rest)) =>
-          println(lnr)
+          log()
           Ast.In(convert(rest), Ast.Raw(target))
         case If(cond, left, right) =>
-          println(s"$lnr")
+          log()
+          /*
           val condAst = pure(cond)
           val leftAst = pure(left)
           val rightAst = pure(right)
@@ -212,6 +260,15 @@ object MyFilter {
             //println(isPure(left
             //Ast.Raw(If(cond, left, right))
             ???
+          }
+          */
+          if (isPureTree(t)) {
+            Ast.Raw(t)
+          } else {
+            val r = Ast.If(Ast.Raw(cond), pure(left), Ast.Raw(right))
+            println(r)
+
+            r
           }
 
 
@@ -283,15 +340,22 @@ object MyFilter {
           val t = convert2(target)
           val l = convert2(list)
           Apply(Select(Select(Ident(TermName("Ast")), TermName("In")), TermName("apply")), List(t, l))
-
+        case Ast.If(Ast.Raw(cond: Tree), Ast.Raw(left: Tree), Ast.Raw(right: Tree)) =>
+          //If(convert2(cond), convert2(left), convert2(right))
+          If(cond, left, right)
+        case Ast.If(Ast.Raw(cond: Tree), left, right) =>
+          If(cond, convert2(left), convert2(right))
       }
     }
     
 
     println("START")
-    println(body)
-    println(show(body))
+
+    //println(body)
+    //println(show(body))
+    println(s"is pure tree: ${isPureTree(body)}")
     val ast = convert(body)
+    /*
     println("===")
     println(ast)
     println("===")
@@ -300,6 +364,7 @@ object MyFilter {
         println(show(obj.asInstanceOf[Tree]))
        case _ =>
     }
+    */
     val astTree = convert2(ast)
     c.Expr[Ast](astTree)
   }
