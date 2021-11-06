@@ -359,10 +359,9 @@ object MyFilter {
     //   List(Apply(Select(Select(Ident(Ast), TermName(Raw)), TermName(apply)), List(Literal(Constant(1)))))), TermName(isEmpty))
     
 
-    println("START")
-
-    println(body)
-    println(show(body))
+    log("START")
+    log(body)
+    log(show(body))
     //println(s"is pure tree: ${isPureTree(body)}")
     val ast = convert(body)
     /*
