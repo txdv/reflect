@@ -140,4 +140,13 @@ class Test extends AnyFlatSpec with should.Matchers {
       Ast.Raw(false)
     }
   }
+
+  "filter" should "handle if statement if cond has tainted expression" in {
+    val args = Array()
+    MyFilter.filter[T] { t =>
+      if (args.contains(t.a)) true else false
+    } should be {
+      Ast.If(Ast.In(Ast.Field("T", "a"), Ast.Raw(Seq.empty)), Ast.Raw(true), Ast.Raw(false))
+    }
+  }
 }

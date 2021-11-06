@@ -88,23 +88,12 @@ object MyFilter {
         case EmptyTree =>
           "EmptyTree"
         case Function(args, body) =>
-          val t = s"Function(${args.map(show)}, $body)"
-
-          println(t)
-          t
+          s"Function(${args.map(show)}, $body)"
         case Typed(target, typeTree) =>
-          val t = s"Typed(${show(target)}, $typeTree)"
-          println(t)
-          t
+          s"Typed(${show(target)}, $typeTree)"
         case If(cond, left, right) =>
-          //println(s"a: $a")
-          //println(s"b: $b")
-          //println(s"c: $c")
           s"If(${show(cond)}, ${show(left)}, ${show(right)})"
         case Match(a, b) =>
-          println(a.getClass)
-          println(b.getClass)
-          println(b.map(show).mkString(", "))
           s"Match($a, ${b.map(show)})"
         case CaseDef(a, b, c) =>
           s"CaseDef(${show(a)}, ${show(b)}, ${show(c)})"
@@ -265,10 +254,7 @@ object MyFilter {
           if (isPureTree(t)) {
             Ast.Raw(t)
           } else {
-            val r = Ast.If(Ast.Raw(cond), pure(left), Ast.Raw(right))
-            println(r)
-
-            r
+            Ast.If(pure(cond), pure(left), pure(right))
           }
 
 
@@ -334,17 +320,18 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Raw")), TermName("apply")), List(tree))
 
         case Ast.In(target, list) =>
-          println("--------------")
-          println(target)
-          println("--------------")
           val t = convert2(target)
           val l = convert2(list)
           Apply(Select(Select(Ident(TermName("Ast")), TermName("In")), TermName("apply")), List(t, l))
-        case Ast.If(Ast.Raw(cond: Tree), Ast.Raw(left: Tree), Ast.Raw(right: Tree)) =>
-          //If(convert2(cond), convert2(left), convert2(right))
-          If(cond, left, right)
         case Ast.If(Ast.Raw(cond: Tree), left, right) =>
+          log(ast)
           If(cond, convert2(left), convert2(right))
+        case Ast.If(cond, left, right) =>
+          log(ast)
+          val c = convert2(cond)
+          val l = convert2(left)
+          val r = convert2(right)
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("If")), TermName("apply")), List(c, l, r))
       }
     }
     
@@ -353,7 +340,7 @@ object MyFilter {
 
     //println(body)
     //println(show(body))
-    println(s"is pure tree: ${isPureTree(body)}")
+    //println(s"is pure tree: ${isPureTree(body)}")
     val ast = convert(body)
     /*
     println("===")
