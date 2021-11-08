@@ -96,58 +96,6 @@ object MyFilter {
   def filterImpl[T](c: Context)(p: c.Expr[T => Boolean])(implicit tg: c.universe.WeakTypeTag[T]): c.Expr[Ast] = {
     import c.universe._
 
-    def show2(modifiers: Modifiers): String = {
-      modifiers match {
-        case Modifiers(flags, mname, annotations) =>
-          s"Modifiers($flags, $mname, $annotations)"
-      }
-    }
-
-    def show(tree: Tree): String = {
-      tree match {
-        case Literal(l) =>
-          s"Literal(${l})"
-        case Apply(ident, args) =>
-          //println(args(0).getClass)
-          val arguments = args.map(show).mkString(", ")
-          s"Apply(${show(ident)}, List($arguments))"
-        case Select(a, TermName(term)) =>
-          s"Select(${show(a)}, TermName(${term}))"
-        case Ident(name) =>
-          s"Ident(${name})"
-        case TypeApply(target, arguments) =>
-          s"TypeApply(${show(target)}, ${arguments.map(show)})"
-        case typeTree: TypeTree =>
-          s"TypeTree(${typeTree})"
-        case ValDef(Modifiers(flags, mname, annotations), TermName(name), tp, rhs) =>
-          s"ValDef(Modifiers($flags, $mname, $annotations), $name, ${show(tp)}, ${show(rhs)})"
-        case DefDef(modifiers, TermName(defName), c, argDefs, typeTree, body) =>
-          val argDefsString = argDefs.map(a => a.map(show))
-          s"DefDef(${show2(modifiers)}, $defName, $c, $argDefsString, $typeTree, ${show(body)})"
-        case EmptyTree =>
-          "EmptyTree"
-        case Function(args, body) =>
-          s"Function(${args.map(show)}, $body)"
-        case Typed(target, typeTree) =>
-          s"Typed(${show(target)}, $typeTree)"
-        case If(cond, left, right) =>
-          s"If(${show(cond)}, ${show(left)}, ${show(right)})"
-        case Match(a, b) =>
-          s"Match($a, ${b.map(show)})"
-        case CaseDef(a, b, c) =>
-          s"CaseDef(${show(a)}, ${show(b)}, ${show(c)})"
-        case UnApply(a, b) =>
-          s"UnApply($a, $b)"
-        case Block(defs, expr) =>
-          val defsString = defs.map(show).mkString(", ")
-          s"Block(($defsString), ${show(expr)})"
-        case other =>
-          println(s"class: ${other}")
-          println(other.getClass)
-          ???
-      }
-    }
-
     // this is awesome
     //println(s"prefix: ${c.prefix}")
     //println(s"isCaseClass: ${tg.tpe.typeSymbol.asClass.isCaseClass}")
@@ -399,7 +347,7 @@ object MyFilter {
 
     log("START")
     log(body)
-    log(show(body))
+    log(showRaw(body))
     //println(s"is pure tree: ${isPureTree(body)}")
     val ast = convert(body)
     /*
