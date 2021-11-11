@@ -29,6 +29,8 @@ object Ast {
   case class Match(expr: Ast, cases: Seq[Ast]) extends Ast
   case class CaseDef(matcher: Ast, cond: Ast, expr: Ast) extends Ast
 
+  case class WildCard(value: String) extends Ast
+
   def optimize(ast: Ast, seen: Set[Int] = Set.empty): Ast = {
 
     val hashCode = ast.hashCode
@@ -109,12 +111,16 @@ object MyFilter {
 
     val `<=` = TermName("$less$equal")
     val `>=` = TermName("$greater$equal")
+    val `>` = TermName("$greater")
+    val `<` = TermName("$less")
     val `+` = TermName("$plus")
 
     val Function(args, body) = p.tree
     val ValDef(mods, name, tp, rhs) = args(0)
 
     def isPureTree(tree: Tree): Boolean = tree match {
+      case Ident(TermName("_")) =>
+        false
       case EmptyTree =>
         true
       case Literal(_) =>
@@ -170,13 +176,46 @@ object MyFilter {
       } else {
         ast
       }
+    }
 
+    def purify(t: Tree): Ast = {
+      if (isPureTree(t)) {
+        Ast.Raw(t)
+      } else {
+        convert(t)
+      }
     }
 
     def convert(t: Tree): Ast = {
       t match {
+        case Ident(TermName("_")) =>
+          Ast.WildCard("")
+        case CaseDef(matcher, cond, expr) =>
+          //Ast.CaseDef(Ast.Raw(Literal(Constant(1))), Ast.Raw(Literal(Constant(null))), Ast.Raw(Literal(Constant(true))))
+          matcher match {
+            case Ident(TermName("_")) =>
+              log("WILDCARD")
+            case _ =>
+              log(showRaw(matcher))
+          }
+
+          val m = purify(matcher)
+          //log(showRaw(m))
+          /*
+          m match {
+            case Ast.Raw(Ident(TermName("_"))) =>
+              println("BINGO")
+            case _ =>
+              log(showRaw(m))
+          }
+          */
+          println(matcher)
+          Ast.CaseDef(m, purify(cond), purify(expr))
         case pureTree if isPureTree(pureTree) =>
+          log(showRaw(pureTree))
           Ast.Raw(pureTree)
+        case CaseDef(matcher, cond, expr) =>
+          Ast.CaseDef(pure(matcher), pure(cond), pure(expr))
         case s: Select =>
           log()
           select(s, name.toString)
@@ -253,8 +292,6 @@ object MyFilter {
           ???
         case Match(expr, cases) =>
           Ast.Match(pure(expr), cases.map(pure))
-        case CaseDef(matcher, cond, expr) =>
-          Ast.CaseDef(pure(matcher), pure(cond), pure(expr))
           /*
         case Apply(TypeApply(name, List(typeTree)), List(target)) =>
           println(lnr)
@@ -333,10 +370,41 @@ object MyFilter {
         case Ast.Match(expr, cases) =>
           val e = convert2(expr)
           //val c = cases.map(c => convert2(c))
-          //Apply(Select(Select(Ident(TermName("Ast")), TermName("Match")), TermName("apply")), List(e, c))
-          ???
+          val c = toTree(cases)
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Match")), TermName("apply")), List(e, c))
+        case Ast.CaseDef(matcher, cond, expr) =>
+          val m = convert2(matcher)
+          val c = convert2(cond)
+          val e = convert2(expr)
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("CaseDef")), TermName("apply")), List(m, c, e))
+        case Ast.WildCard(a) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("WildCard")), TermName("apply")), List(Literal(Constant(""))))
       }
     }
+
+    def toTree(arguments: Seq[Ast]): Tree = {
+
+      /*
+      Select(
+        Apply(
+          TypeApply(Select(Select(Select(Select(Ident("scala"), TermName("collection")), TermName("immutable")), TermName("Seq")), TermName("apply")) List(TypeTree("Ast.Raw", List.empty))),
+          List(Apply(Select(Select(Ident("Ast"), TermName("Raw")), TermName("apply")), List(Literal(Constant(1)))))),
+        TermName("isEmpty"))
+      */
+
+     //val seq = Ident("scala.collection.immutable.Seq")
+     val seq = Select(Select(Select(Ident("scala"), TermName("collection")), TermName("immutable")), TermName("Seq"))
+
+     val args = arguments.map(a => convert2(a)).toList
+
+     //val val1 = Apply(Select(Select(Ident("Ast"), TermName("Raw")), TermName("apply")), List(Literal(Constant(1))))
+     //val val2 = Apply(Select(Select(Ident("Ast"), TermName("Raw")), TermName("apply")), List(Literal(Constant(true))))
+     //val args = List(val1, val2)
+
+     //Apply(TypeApply(Select(seq, TermName("apply")), List(Ident("Ast"))), List(val1))
+     Apply(Select(seq, TermName("apply")), args)
+    }
+
 
     // scala.collection.immutable.Seq.apply[Ast.Raw](Ast.Raw.apply(1)).isEmpty
     //

@@ -149,4 +149,56 @@ class Test extends AnyFlatSpec with should.Matchers {
       Ast.If(Ast.In(Ast.Field("T", "a"), Ast.Raw(Seq.empty)), Ast.Raw(true), Ast.Raw(false))
     }
   }
+
+  "filter" should "handle match statement if cond is true" in {
+    val args = Array()
+    MyFilter.filter[T] { t =>
+      args.size match {
+        case 0 => true
+        case _ => false
+      }
+    } should be {
+      Ast.Raw(true)
+    }
+  }
+
+  "filter" should "handle match statement if cond is false" in {
+    val args = Array(1)
+    MyFilter.filter[T] { t =>
+      args.size match {
+        case 0 => true
+        case _ => false
+      }
+    } should be {
+      Ast.Raw(false)
+    }
+  }
+
+  "filter" should "handle match statement if cond is impure" in {
+    MyFilter.filter[T] { t =>
+      t.a match {
+        case 0 => true
+        case _ => false
+      }
+    } should be {
+      Ast.Match(Ast.Field("T", "a"), Seq(
+        Ast.CaseDef(Ast.Raw(0), Ast.Raw(null), Ast.Raw(true)),
+        Ast.CaseDef(Ast.WildCard(""), Ast.Raw(null), Ast.Raw(false))
+      ))
+    }
+  }
+
+  "filter" should "handle match statement if cond is impure and case def expr is complex" in {
+    MyFilter.filter[T] { t =>
+      t.a match {
+        case 0 => t.b
+        case _ => t.d == "hello"
+      }
+    } should be {
+      Ast.Match(Ast.Field("T", "a"), Seq(
+        Ast.CaseDef(Ast.Raw(0), Ast.Raw(null), Ast.Field("T", "b")),
+        Ast.CaseDef(Ast.WildCard(""), Ast.Raw(null), Ast.Equal(Ast.Field("T", "d"), Ast.Raw("hello")))
+      ))
+    }
+  }
 }
