@@ -201,4 +201,19 @@ class Test extends AnyFlatSpec with should.Matchers {
       ))
     }
   }
+
+
+  "filter" should "handle match statement if cond is impure and case def expr is complex" in {
+    MyFilter.filter[T] { t =>
+      t match {
+        case T(a, b, _, _) if a == 0 => b
+        case T(_, _, _, d) => d == "hello"
+      }
+    } should be {
+      Ast.Match(Ast.Field("T", "a"), Seq(
+        Ast.CaseDef(Ast.Raw(0), Ast.Raw(null), Ast.Field("T", "b")),
+        Ast.CaseDef(Ast.WildCard(""), Ast.Raw(null), Ast.Equal(Ast.Field("T", "d"), Ast.Raw("hello")))
+      ))
+    }
+  }
 }

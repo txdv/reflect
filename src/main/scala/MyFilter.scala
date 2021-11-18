@@ -103,6 +103,32 @@ object MyFilter {
     //println(s"isCaseClass: ${tg.tpe.typeSymbol.asClass.isCaseClass}")
     //println(s"isCaseClass: ${tg.tpe.typeSymbol.name}")
 
+    val TypeName(klassName) = tg.tpe.typeSymbol.name
+    log(showRaw(tg.tpe.member(TermName("index"))))
+    //log(tg.tpe.member(TermName("index")))
+    println(tg.tpe.members.filter(_.name == "index"))
+    //println(tg.tpe.members.filter(_.name == "index"))
+    tg.tpe.members.foreach { member =>
+      member match {
+        case m: c.universe.MethodSymbol =>
+          println(showRaw(m.info))
+        case t: c.universe.TermSymbol =>
+          println(showRaw(t.info))
+        case a =>
+          println(showRaw(a))
+
+      }
+      //println(member.asMethod.isLabel)
+      //println(member.getClass)
+
+    }
+    //log(showRaw(tg.tpe.decl(TermName("index"))))
+    //log(tg.tpe.members.map(m => showRaw(m)).mkString(", "))
+    //log(tg.tpe.decls.map(m => showRaw(m)).mkString(", "))
+
+    log(s"klassName: ${klassName}")
+
+
     val `==` = TermName("$eq$eq")
     val `!=` = TermName("$bang$eq")
 
@@ -148,6 +174,19 @@ object MyFilter {
         isPureTree(body)
       case Block(defs, expr) =>
         defs.forall(isPureTree) && isPureTree(expr)
+      case tt: TypeTree =>
+        log(tt)
+        log(showRaw(tt.original))
+        tt.original match {
+          case Ident(TermName(klassName)) =>
+            false
+          case _ =>
+            true
+        }
+      case Bind(TermName(a), Ident(TermName(b))) =>
+        log(a)
+        log(b)
+        true
       case other =>
         log(s"omg ${other.getClass} $other")
         ???
@@ -191,26 +230,10 @@ object MyFilter {
         case Ident(TermName("_")) =>
           Ast.WildCard("")
         case CaseDef(matcher, cond, expr) =>
-          //Ast.CaseDef(Ast.Raw(Literal(Constant(1))), Ast.Raw(Literal(Constant(null))), Ast.Raw(Literal(Constant(true))))
-          matcher match {
-            case Ident(TermName("_")) =>
-              log("WILDCARD")
-            case _ =>
-              log(showRaw(matcher))
-          }
-
           val m = purify(matcher)
-          //log(showRaw(m))
-          /*
-          m match {
-            case Ast.Raw(Ident(TermName("_"))) =>
-              println("BINGO")
-            case _ =>
-              log(showRaw(m))
-          }
-          */
-          println(matcher)
-          Ast.CaseDef(m, purify(cond), purify(expr))
+          val c = purify(cond)
+          val e = purify(expr)
+          Ast.CaseDef(m, c, e)
         case pureTree if isPureTree(pureTree) =>
           log(showRaw(pureTree))
           Ast.Raw(pureTree)
@@ -222,6 +245,38 @@ object MyFilter {
         case Literal(Constant(right)) =>
           log()
           Ast.Raw(Literal(Constant(right)))
+        case Apply(t: TypeTree, args) =>
+          /*
+          log(showRaw(t))
+          log(t.symbol)
+          log(t.isEmpty)
+          log(showRaw(t.original))
+          */
+          log(t)
+          log("foreach")
+          args.foreach { arg =>
+            log(s"${arg.getClass} $arg")
+
+            arg match {
+              case Ident(TermName("_")) =>
+                log("wildcard")
+              case _ =>
+                log("something else")
+            }
+          }
+          log(args.foreach(convert))
+          t.original match {
+            case Ident(TermName(klassName)) =>
+              log("TRUE")
+              true
+            case _ =>
+              false
+          }
+          /*
+          args.foreach { arg =>
+            log(showRaw(arg))
+          }*/
+          ???
         case Apply(Select(Apply(klass, List(left)), TermName("contains")), List(right)) =>
           log()
           klass.toString match {
@@ -311,9 +366,8 @@ object MyFilter {
 
 
         case other =>
-          log(s"missing: ${other.getClass} ${show(other)}")
+          log(s"missing: ${other.getClass} ${showRaw(other)}")
           ???
-
       }
     }
 
@@ -418,6 +472,7 @@ object MyFilter {
     log(showRaw(body))
     //println(s"is pure tree: ${isPureTree(body)}")
     val ast = convert(body)
+    log(ast)
     /*
     println("===")
     println(ast)
