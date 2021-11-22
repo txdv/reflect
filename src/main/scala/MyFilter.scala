@@ -29,7 +29,7 @@ object Ast {
   case class Match(expr: Ast, cases: Seq[Ast]) extends Ast
   case class CaseDef(matcher: Ast, cond: Ast, expr: Ast) extends Ast
 
-  case class WildCard(value: String) extends Ast
+  case object WildCard extends Ast
 
   def optimize(ast: Ast, seen: Set[Int] = Set.empty): Ast = {
 
@@ -228,7 +228,7 @@ object MyFilter {
     def convert(t: Tree): Ast = {
       t match {
         case Ident(TermName("_")) =>
-          Ast.WildCard("")
+          Ast.WildCard
         case CaseDef(matcher, cond, expr) =>
           val m = purify(matcher)
           val c = purify(cond)
@@ -431,8 +431,8 @@ object MyFilter {
           val c = convert2(cond)
           val e = convert2(expr)
           Apply(Select(Select(Ident(TermName("Ast")), TermName("CaseDef")), TermName("apply")), List(m, c, e))
-        case Ast.WildCard(a) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("WildCard")), TermName("apply")), List(Literal(Constant(""))))
+        case Ast.WildCard =>
+          Select(Ident(TermName("Ast")), TermName("WildCard"))
       }
     }
 
