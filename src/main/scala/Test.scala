@@ -236,6 +236,16 @@ class Test extends AnyFlatSpec with should.Matchers {
     }
   }
 
+  "filter" should "handle empty case class mapping" in {
+    MyFilter.filter[T] {
+      case T(_, _, _, _) => false
+    } should be {
+      Ast.Match(Ast.Field("T","x0$3",""), List(
+        Ast.CaseDef(Ast.Apply("T", List(Ast.WildCard, Ast.WildCard, Ast.WildCard, Ast.WildCard)), Ast.Raw(null), Ast.Raw(false)))
+      )
+    }
+  }
+
   /*
   "filter" should "handle match statement if cond is impure and case def expr is complex" in {
     MyFilter.filter[T] { t =>
