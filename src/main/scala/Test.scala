@@ -214,6 +214,28 @@ class Test extends AnyFlatSpec with should.Matchers {
     }
   }
 
+  "filter" should "handle inline matching" in {
+    MyFilter.filter[T] {
+      case _ => false
+    } should be {
+      Ast.Match(Ast.Field("T","x0$1",""), List(Ast.CaseDef(Ast.WildCard,Ast.Raw(null),Ast.Raw(false))))
+    }
+  }
+
+  "filter" should "handle concrete inline matching" in {
+    MyFilter.filter[Int] {
+      case 1 => true
+      case 9 => true
+      case _ => false
+    } should be {
+      Ast.Match(Ast.Field("Int", "x0$2", ""),List(
+        Ast.CaseDef(Ast.Raw(1), Ast.Raw(null), Ast.Raw(true)),
+        Ast.CaseDef(Ast.Raw(9), Ast.Raw(null), Ast.Raw(true)),
+        Ast.CaseDef(Ast.WildCard, Ast.Raw(null), Ast.Raw(false)))
+      )
+    }
+  }
+
   /*
   "filter" should "handle match statement if cond is impure and case def expr is complex" in {
     MyFilter.filter[T] { t =>
