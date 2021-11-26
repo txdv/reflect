@@ -11,6 +11,12 @@ scala_binary(
     srcs = ["Main.scala"],
     deps = [":reflect"])
 
+scala_binary(
+    name = "main2",
+    main_class = "Main",
+    srcs = ["Main2.scala"],
+    deps = [])
+
 scala_test(
     name = "test",
     srcs = ["Test.scala"],

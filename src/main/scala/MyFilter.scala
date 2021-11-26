@@ -29,6 +29,8 @@ object Ast {
   case class Match(expr: Ast, cases: Seq[Ast]) extends Ast
   case class CaseDef(matcher: Ast, cond: Ast, expr: Ast) extends Ast
 
+  case class Apply(tpe: String, args: Seq[Ast]) extends Ast
+
   case object WildCard extends Ast
 
   def optimize(ast: Ast, seen: Set[Int] = Set.empty): Ast = {
@@ -104,24 +106,26 @@ object MyFilter {
     //println(s"isCaseClass: ${tg.tpe.typeSymbol.name}")
 
     val TypeName(klassName) = tg.tpe.typeSymbol.name
+    log("=== START tpe members ===")
     log(showRaw(tg.tpe.member(TermName("index"))))
     //log(tg.tpe.member(TermName("index")))
-    println(tg.tpe.members.filter(_.name == "index"))
+    log(tg.tpe.members.filter(_.name == "index"))
     //println(tg.tpe.members.filter(_.name == "index"))
     tg.tpe.members.foreach { member =>
       member match {
         case m: c.universe.MethodSymbol =>
-          println(showRaw(m.info))
+          log(showRaw(m.info))
         case t: c.universe.TermSymbol =>
-          println(showRaw(t.info))
+          log(showRaw(t.info))
         case a =>
-          println(showRaw(a))
+          log(showRaw(a))
 
       }
       //println(member.asMethod.isLabel)
       //println(member.getClass)
 
     }
+    log("=== STOP tpe members ===")
     //log(showRaw(tg.tpe.decl(TermName("index"))))
     //log(tg.tpe.members.map(m => showRaw(m)).mkString(", "))
     //log(tg.tpe.decls.map(m => showRaw(m)).mkString(", "))
@@ -246,12 +250,7 @@ object MyFilter {
           log()
           Ast.Raw(Literal(Constant(right)))
         case Apply(t: TypeTree, args) =>
-          /*
-          log(showRaw(t))
-          log(t.symbol)
-          log(t.isEmpty)
-          log(showRaw(t.original))
-          */
+          log(s"log: ${isPureTree(t)}")
           log(t)
           log("foreach")
           args.foreach { arg =>
@@ -272,11 +271,14 @@ object MyFilter {
             case _ =>
               false
           }
-          /*
-          args.foreach { arg =>
-            log(showRaw(arg))
-          }*/
-          ???
+
+          Ast.Apply(klassName, args.map {
+            case Ident(TermName("_")) =>
+              Ast.WildCard
+            case _ =>
+              ???
+
+          })
         case Apply(Select(Apply(klass, List(left)), TermName("contains")), List(right)) =>
           log()
           klass.toString match {
@@ -330,9 +332,9 @@ object MyFilter {
             Ast.Raw(Apply(Ident(funcName), args))
 
           }
-        case Ident(TermName(o)) =>
-          log(o)
-          Ast.Raw(Ident(TermName(o)))
+        case Ident(TermName(termName)) if termName == name.toString =>
+          //Ast.Raw(Ident(TermName(o)))
+          Ast.Field(tg.tpe.typeSymbol.name.toString, termName)
         case Apply(TypeApply(Select(target, TermName("contains")), List(typeTree)), List(rest)) =>
           log()
           Ast.In(convert(rest), Ast.Raw(target))
@@ -346,6 +348,7 @@ object MyFilter {
         case ValDef(mods, name, tp, rhs) =>
           ???
         case Match(expr, cases) =>
+          log(expr)
           Ast.Match(pure(expr), cases.map(pure))
           /*
         case Apply(TypeApply(name, List(typeTree)), List(target)) =>
@@ -419,8 +422,9 @@ object MyFilter {
           val l = convert2(left)
           val r = convert2(right)
           Apply(Select(Select(Ident(TermName("Ast")), TermName("If")), TermName("apply")), List(c, l, r))
-        case Ast.Match(Ast.Raw(expr), cases) =>
-          ???
+        //case Ast.Match(Ast.Raw(expr), cases) =>
+        //  log(showRaw(expr))
+        //  log(showRaw(cases))
         case Ast.Match(expr, cases) =>
           val e = convert2(expr)
           //val c = cases.map(c => convert2(c))
@@ -433,7 +437,21 @@ object MyFilter {
           Apply(Select(Select(Ident(TermName("Ast")), TermName("CaseDef")), TermName("apply")), List(m, c, e))
         case Ast.WildCard =>
           Select(Ident(TermName("Ast")), TermName("WildCard"))
+        case Ast.Apply(tpe, args) =>
+          val seqArg = toTree(args)
+          val result = List(Literal(Constant(tpe)), seqArg)
+          toAst("Apply", result)
+        case other =>
+          log(other.getClass)
+          log(other)
+          ???
       }
+    }
+
+    def toAst(name: String, target: List[Tree]): Tree = {
+      val tree = Select(Select(Ident(TermName("Ast")), TermName(name)), TermName("apply"))
+
+      Apply(tree, target)
     }
 
     def toTree(arguments: Seq[Ast]): Tree = {
@@ -484,6 +502,8 @@ object MyFilter {
     }
     */
     val astTree = convert2(ast)
+    log(astTree)
+    log(showRaw(astTree))
     c.Expr[Ast](astTree)
   }
 }
