@@ -17,7 +17,7 @@ object Ast {
 
   case class Plus(left: Ast, right: Ast) extends Ast
 
-  case class Field(target: String, name: String) extends Ast
+  case class Field(target: String, name: String, path: String) extends Ast
   case class Method(ast: Ast, name: String, args: Seq[Ast]) extends Ast
 
   case class Raw(obj: Any) extends Ast
@@ -199,10 +199,13 @@ object MyFilter {
 
     def select(s: Tree, name: String, path: Seq[String] = Seq.empty): Ast = s match {
       case Ident(TermName(termName)) if termName == name =>
-        log()
-        Ast.Field(tg.tpe.typeSymbol.name.toString, path.reverse.mkString("."))
+        log(s"name: $name path: $path")
+        //val total = path :+ termName
+        val result = Ast.Field(tg.tpe.typeSymbol.name.toString, termName, path.reverse.mkString("."))
+        log(result)
+        result
       case Select(s, TermName(fieldName)) =>
-        log()
+        log(s"fieldName: $fieldName")
         select(s, name, path :+ fieldName)
       case Apply(Select(Select(Ident(TermName("scala")), TermName("Predef")), TermName("augmentString")), List(rest)) =>
         log()
@@ -244,7 +247,7 @@ object MyFilter {
         case CaseDef(matcher, cond, expr) =>
           Ast.CaseDef(pure(matcher), pure(cond), pure(expr))
         case s: Select =>
-          log()
+          log(s)
           select(s, name.toString)
         case Literal(Constant(right)) =>
           log()
@@ -275,7 +278,9 @@ object MyFilter {
           Ast.Apply(klassName, args.map {
             case Ident(TermName("_")) =>
               Ast.WildCard
-            case _ =>
+            case o =>
+              log(o)
+              log(showRaw(o))
               ???
 
           })
@@ -333,8 +338,7 @@ object MyFilter {
 
           }
         case Ident(TermName(termName)) if termName == name.toString =>
-          //Ast.Raw(Ident(TermName(o)))
-          Ast.Field(tg.tpe.typeSymbol.name.toString, termName)
+          Ast.Field(tg.tpe.typeSymbol.name.toString, termName, "")
         case Apply(TypeApply(Select(target, TermName("contains")), List(typeTree)), List(rest)) =>
           log()
           Ast.In(convert(rest), Ast.Raw(target))
@@ -389,8 +393,8 @@ object MyFilter {
         case Ast.Unequal(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("Unequal")), TermName("apply")), List(convert2(left), convert2(right)))
 
-        case Ast.Field(target, name) =>
-          Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(const(target), const(name)))
+        case Ast.Field(target, name, path) =>
+          Apply(Select(Select(Ident(TermName("Ast")), TermName("Field")), TermName("apply")), List(const(target), const(name), const(path)))
 
         case Ast.And(left, right) =>
           Apply(Select(Select(Ident(TermName("Ast")), TermName("And")), TermName("apply")), List(convert2(left), convert2(right)))
